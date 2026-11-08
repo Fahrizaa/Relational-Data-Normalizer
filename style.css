@@ -549,6 +549,30 @@ th .badge-fk {
   margin-right: 4px;
 }
 
+/* KLARIFIKASI ASAL KUNCI TAMU (FK) DI HEADER */
+.fk-origin-tag {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #fef3c7;
+  margin-top: 3px;
+  opacity: 0.95;
+  white-space: nowrap;
+}
+
+.fk-origin-tag strong {
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.th-col-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
 /* LEGENDA STATUS KUNCI */
 .key-legend-box {
   display: flex;

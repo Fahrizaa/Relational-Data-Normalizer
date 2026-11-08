@@ -984,21 +984,35 @@ function createHTMLTableElement(tableName, columns, primaryKeys = [], foreignKey
   });
 
   const fkList = Array.isArray(foreignKeys) ? foreignKeys : [];
-  const pkList = Array.isArray(primaryKeys) ? primaryKeys : [];
+  const rawPkList = Array.isArray(primaryKeys) ? primaryKeys : [];
+
+  // ATURAN: Jika suatu kolom berstatus FK, maka status PK yang di tabel sebelumnya TIDAK PERLU DIPERLIHATKAN.
+  // Kolom tersebut murni berstatus FK, sehingga daftar PK di tabel ini hanya memuat kolom yang murni PK lokal.
+  const purePkList = rawPkList.filter(k => !fkList.includes(k));
+
+  // Peta referensi asal untuk setiap kolom FK
+  const refMap = {};
+  if (Array.isArray(references)) {
+    references.forEach(r => {
+      if (r && r.column) {
+        refMap[r.column] = r.refTable || r.targetTable || '';
+      }
+    });
+  }
 
   let refInfoHtml = '';
   if (Array.isArray(references) && references.length > 0) {
     refInfoHtml = `
       <div class="table-rel-info">
         <i class="fa-solid fa-link"></i> <strong>Kunci Tamu (Foreign Key):</strong>
-        ${references.map(r => `<code>${escapeHTML(r.column)}</code> → merujuk ke <strong>${escapeHTML(r.refTable || r.targetTable || 'tabel rujukan')}(${escapeHTML(r.refColumn || r.targetColumn || r.column)})</strong>`).join(' | ')}
+        ${references.map(r => `<code>${escapeHTML(r.column)}</code> berasal dari tabel <strong>${escapeHTML(r.refTable || r.targetTable || 'tabel master')}(${escapeHTML(r.refColumn || r.targetColumn || r.column)})</strong>`).join(' &bull; ')}
       </div>
     `;
   } else if (fkList.length > 0) {
     refInfoHtml = `
       <div class="table-rel-info">
         <i class="fa-solid fa-link"></i> <strong>Kunci Tamu (Foreign Key):</strong>
-        ${fkList.map(k => `<code>${escapeHTML(k)}</code> (merujuk ke Primary Key tabel master)`).join(', ')}
+        ${fkList.map(k => `<code>${escapeHTML(k)}</code> berasal dari tabel master`).join(', ')}
       </div>
     `;
   }
@@ -1008,7 +1022,7 @@ function createHTMLTableElement(tableName, columns, primaryKeys = [], foreignKey
       <div class="norm-table-header">
         <strong><i class="fa-solid fa-table"></i> ${escapeHTML(tableName)}</strong>
         <div style="display:flex; gap:6px; flex-wrap:wrap;">
-          ${pkList.length > 0 ? `<span class="badge badge-pk" title="Primary Key"><i class="fa-solid fa-key"></i> PK: ${escapeHTML(pkList.join(', '))}</span>` : ''}
+          ${purePkList.length > 0 ? `<span class="badge badge-pk" title="Primary Key"><i class="fa-solid fa-key"></i> PK: ${escapeHTML(purePkList.join(', '))}</span>` : ''}
           ${fkList.length > 0 ? `<span class="badge badge-fk" title="Foreign Key"><i class="fa-solid fa-link"></i> FK: ${escapeHTML(fkList.join(', '))}</span>` : ''}
         </div>
       </div>
@@ -1018,17 +1032,35 @@ function createHTMLTableElement(tableName, columns, primaryKeys = [], foreignKey
           <thead>
             <tr>
               ${columns.map(col => {
-                const isPK = pkList.includes(col);
                 const isFK = fkList.includes(col);
+                const isPK = !isFK && purePkList.includes(col);
+                const originTable = refMap[col] || '';
+
                 let badgeHtml = '';
-                if (isPK && isFK) {
-                  badgeHtml = '<span class="badge badge-pk" title="Primary Key">PK</span> <span class="badge badge-fk" title="Foreign Key">FK</span> ';
+                let originHtml = '';
+
+                if (isFK) {
+                  // Jika status kolom adalah FK, status PK sebelumnya tidak ditampilkan,
+                  // melainkan hanya badge FK disertai klarifikasi tabel asal
+                  badgeHtml = '<span class="badge badge-fk" title="Kunci Tamu (Foreign Key)"><i class="fa-solid fa-link"></i> FK</span> ';
+                  if (originTable) {
+                    originHtml = `<span class="fk-origin-tag"><i class="fa-solid fa-arrow-turn-up" style="transform:rotate(90deg);" aria-hidden="true"></i> asal: <strong>${escapeHTML(originTable)}</strong></span>`;
+                  }
                 } else if (isPK) {
-                  badgeHtml = '<span class="badge badge-pk" title="Primary Key">PK</span> ';
-                } else if (isFK) {
-                  badgeHtml = '<span class="badge badge-fk" title="Foreign Key">FK</span> ';
+                  badgeHtml = '<span class="badge badge-pk" title="Primary Key"><i class="fa-solid fa-key"></i> PK</span> ';
                 }
-                return `<th>${badgeHtml}${escapeHTML(col)}</th>`;
+
+                return `
+                  <th>
+                    <div class="th-col-content">
+                      <div class="th-col-title">
+                        ${badgeHtml}
+                        <span>${escapeHTML(col)}</span>
+                      </div>
+                      ${originHtml}
+                    </div>
+                  </th>
+                `;
               }).join('')}
             </tr>
           </thead>
@@ -1098,24 +1130,33 @@ function process2NFAnd3NF() {
   }
 
   // Tabel Transaksi Utama 2NF
-  // Kolom-kolom LHS partial dependency di tabel transaksi menjadi Foreign Key
+  // Kolom-kolom LHS partial dependency di tabel transaksi berstatus Foreign Key
   const fks2NF = userPKs.filter(k => partialMasters.some(m => m.lhs.includes(k)));
-  const transRefs2NF = partialMasters.map(pm => {
+  const transRefs2NF = [];
+  partialMasters.forEach(pm => {
     const targetTable = findSemanticName(pm.lhs, pm.cols) || `Tabel_Master_${pm.lhs.join('_')}`;
-    return { column: pm.lhs.join(', '), refTable: targetTable, refColumn: pm.lhs.join(', ') };
+    pm.lhs.forEach(col => {
+      transRefs2NF.push({ column: col, refTable: targetTable, refColumn: col });
+    });
   });
 
   const mainTrans2NFCols = [...new Set([...userPKs, ...remainingCols2NF])];
   const mainTrans2NFName = findTransactionTableName(universeCols) || "Tabel_Transaksi_Utama_2NF";
 
+  // Di tabel transaksi 2NF, kolom yang menjadi FK dikeluarkan dari daftar PK lokal
+  const mainTrans2NFPks = userPKs.filter(k => !fks2NF.includes(k));
+
   tables2NF.push({
     name: mainTrans2NFName,
-    description: "Tabel transaksi utama 2NF yang memuat Composite Primary Key dan sisa atribut operasional",
-    pk: [...userPKs],
+    description: "Tabel transaksi utama 2NF yang memuat Foreign Key perujuk ke tabel master dan sisa atribut operasional",
+    pk: mainTrans2NFPks.length > 0 ? mainTrans2NFPks : [...userPKs],
     fk: [...new Set(fks2NF)],
     cols: mainTrans2NFCols,
     references: transRefs2NF
   });
+
+  // Terapkan penataan FK untuk 2NF agar konsisten
+  resolveAndAssignForeignKeys(tables2NF);
 
   globalState.tables2NF = tables2NF;
   document.getElementById('tables-2nf-container').innerHTML = tables2NF.map(t => 
@@ -1144,7 +1185,7 @@ function process2NFAnd3NF() {
 
   switchStep(7);
   scrollToCard('card-step-7');
-  showToast('Struktur 2NF dan 3NF berhasil dibentuk dengan dua status kunci (PK & FK).', 'success');
+  showToast('Struktur 2NF dan 3NF berhasil dibentuk: kolom FK berstatus jelas dengan keterangan tabel asal.', 'success');
 }
 
 /* =========================================================
@@ -1186,20 +1227,18 @@ function findTransactionTableName(cols) {
   const colStr = cols.join('_').toLowerCase();
   if (colStr.includes('nota')) return 'Tabel_Detail_Nota';
   if (colStr.includes('gaji')) return 'Tabel_Slip_Gaji';
-  if (colStr.includes('nilai') || colStr.includes('indeks')) return 'Tabel_Nilai_Mahasiswa';
+  if (colStr.includes('nilai') || colStr.includes('indeks') || colStr.includes('smt')) return 'Tabel_Nilai_Mahasiswa';
   if (colStr.includes('krs')) return 'Tabel_KRS_Mahasiswa';
   return 'Tabel_Transaksi_Utama_3NF';
 }
 
 function isValidAiSuggestedTables(suggested, universeCols) {
   if (!Array.isArray(suggested) || suggested.length === 0) return false;
-  // Periksa apakah semua tabel memiliki nama dan kolom valid
   const covered = new Set();
   for (const t of suggested) {
     if (!t.name || !Array.isArray(t.columns) || t.columns.length === 0) return false;
     t.columns.forEach(c => covered.add(c));
   }
-  // Pastikan sebagian besar kolom universal tercakup
   const matchCount = universeCols.filter(c => covered.has(c)).length;
   return matchCount >= Math.floor(universeCols.length * 0.7);
 }
@@ -1225,8 +1264,8 @@ function computeDeterministic3NF(tables2NF, userPKs, fds, universeCols) {
   let mainTable = null;
 
   tables2NF.forEach(t => {
-    const isMain = arraysEqual(t.pk, userPKs) || t.name.toLowerCase().includes('transaksi');
-    if (isMain) {
+    const isMain = arraysEqual(t.pk, userPKs) || t.name.toLowerCase().includes('transaksi') || t.name.toLowerCase().includes('nilai');
+    if (isMain && !mainTable) {
       mainTable = { ...t, cols: [...t.cols], pk: [...t.pk], fk: [...t.fk], references: [...(t.references || [])] };
     } else {
       masterTables3NF.push({ ...t, cols: [...t.cols], pk: [...t.pk], fk: [...t.fk], references: [...(t.references || [])] });
@@ -1253,7 +1292,6 @@ function computeDeterministic3NF(tables2NF, userPKs, fds, universeCols) {
     if (hasLhs && !isSuperKey) {
       const nonPkRhs = fd.rhs.filter(c => !userPKs.includes(c) && mainTable.cols.includes(c) && !fd.lhs.includes(c));
       if (nonPkRhs.length > 0) {
-        // Cek apakah tabel master untuk LHS ini sudah ada
         let existingMaster = masterTables3NF.find(m => arraysEqual(m.pk, fd.lhs));
         if (existingMaster) {
           existingMaster.cols = [...new Set([...existingMaster.cols, ...nonPkRhs])];
@@ -1271,7 +1309,6 @@ function computeDeterministic3NF(tables2NF, userPKs, fds, universeCols) {
 
         // Di tabel transaksi utama: hapus atribut non-key RHS, pertahankan LHS sebagai Foreign Key!
         mainTable.cols = mainTable.cols.filter(c => !nonPkRhs.includes(c));
-        // Tambahkan LHS ke foreign keys tabel utama
         fd.lhs.forEach(k => {
           if (!mainTable.fk.includes(k)) mainTable.fk.push(k);
         });
@@ -1285,12 +1322,12 @@ function computeDeterministic3NF(tables2NF, userPKs, fds, universeCols) {
 
 /**
  * Aturan penetapan status kunci:
- * Kolom yang merupakan Primary Key di tabel master (misal nip di tabel_dosen, atau kode_pelanggan di tabel_pelanggan),
- * ketika digunakan di tabel transaksi/relasi, statusnya HARUS Foreign Key (FK) dan BUKAN Primary Key lagi
- * (kecuali jika kolom tersebut merupakan bagian sah dari Composite Primary Key tabel transaksi).
+ * Kolom yang merupakan Foreign Key (FK) yang merujuk ke tabel master
+ * status PK-nya TIDAK LAGI DIPERLIHATKAN pada tabel anak/transaksi.
+ * Kolom tersebut murni menjadi Foreign Key (FK) lengkap dengan tabel asal referensinya.
  */
 function resolveAndAssignForeignKeys(tables) {
-  // 1. Identifikasi tabel master: tabel yang memiliki kunci utama unik spesifik (biasanya single-PK)
+  // 1. Identifikasi tabel master: tabel yang mendefinisikan kunci unik primer (biasanya single-PK)
   const masterTables = tables.filter(t => Array.isArray(t.pk) && t.pk.length === 1);
 
   tables.forEach(t => {
@@ -1307,15 +1344,17 @@ function resolveAndAssignForeignKeys(tables) {
         // Kolom ini merujuk ke tabel master -> berstatus Foreign Key!
         if (!t.fk.includes(col)) t.fk.push(col);
 
-        if (!t.references.some(r => r.column === col)) {
+        const existingRef = t.references.find(r => r.column === col);
+        if (existingRef) {
+          existingRef.refTable = parentMaster.name;
+          existingRef.refColumn = col;
+        } else {
           t.references.push({ column: col, refTable: parentMaster.name, refColumn: col });
         }
 
-        // Aturan: Jika kolom ini bukan bagian dari composite primary key sejati di tabel transaksi:
-        // Contoh: 'nip' di tabel nilai, atau 'KodePelanggan' di tabel nota:
-        // Kolom tersebut HANYALAH Foreign Key (FK) dan BUKAN Primary Key lagi!
-        const isCoreComposite = t.pk.includes(col) && t.pk.length > 1 && isLikelyCompositeIdentifier(col, t.pk);
-        if (t.pk.includes(col) && (!isCoreComposite || isSingleMaster)) {
+        // ATURAN USER: Jika status kolom adalah FK, maka status PK tidak perlu diperlihatkan di tabel ini!
+        // Hapus kolom tersebut dari daftar PK tabel ini agar statusnya murni FK.
+        if (t.pk.includes(col) && !isSingleMaster) {
           t.pk = t.pk.filter(k => k !== col);
         }
       }
@@ -1384,13 +1423,16 @@ function generateSQLExport() {
       if (isNum) type = 'INT';
       else if (isDate) type = 'DATE';
 
-      const isRequired = t.pk.includes(c) || t.fk.includes(c);
+      const isRequired = (t.pk && t.pk.includes(c)) || (t.fk && t.fk.includes(c));
       return `  ${c.toLowerCase()} ${type}${isRequired ? ' NOT NULL' : ''}`;
     });
 
     // Primary Key Constraint
     if (t.pk.length > 0) {
       colDefs.push(`  PRIMARY KEY (${t.pk.map(p => p.toLowerCase()).join(', ')})`);
+    } else if (t.fk.length > 0) {
+      // Jika seluruh kunci tabel adalah Foreign Key (tabel asosiatif/detail komposit), jadikan FK sebagai Composite PK di SQL
+      colDefs.push(`  PRIMARY KEY (${t.fk.map(p => p.toLowerCase()).join(', ')})`);
     }
 
     // Foreign Key Constraints
