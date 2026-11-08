@@ -338,6 +338,7 @@ async function analyzeDocumentWithGemini() {
          * "primaryKeys": kolom yang menjadi Primary Key tabel ini
          * "foreignKeys": kolom yang menjadi Foreign Key di tabel ini (misal: kolom "nip" di tabel nilai mahasiswa adalah FK yang merujuk tabel_dosen, BUKAN primary key tabel nilai!).
          * "references": relasi foreign key, contoh: [{"column": "nip", "refTable": "tabel_dosen", "refColumn": "nip"}]
+    7. PENTING - HINDARI KOLOM TUMPANG TINDIH: Jangan menghasilkan kolom redundan yang merujuk pada data yang sama (misalnya: jika ada nip dosen wali dan nip dosen pengampu yang identik, satukan menjadi atribut tunggal 'nip_dosen' atau 'nip' agar tidak tumpang tindih).
 
     Keluarkan HANYA JSON murni tanpa pembungkus markdown dengan format:
     {
@@ -738,13 +739,18 @@ function renderRawDataTableAndFDs() {
 
   const table = document.getElementById('raw-data-table');
   
-  // Render THEAD dengan header editable dan tombol ganti nama
+  // Render THEAD dengan header editable dan tombol hapus kolom
   table.querySelector('thead').innerHTML = `
     <tr>
       ${globalState.columns.map((c, i) => `
-        <th style="position: relative; cursor: text;" title="Klik untuk mengubah nama kolom">
-          <span contenteditable="true" class="editable-col-header" data-col-index="${i}">${escapeHTML(c)}</span>
-          <i class="fa-solid fa-pen" style="font-size:0.65rem; color:#9ca3af; margin-left:4px; pointer-events:none;"></i>
+        <th style="position: relative;">
+          <div class="col-header-wrap">
+            <span contenteditable="true" class="editable-col-header" data-col-index="${i}" title="Klik untuk mengubah nama kolom">${escapeHTML(c)}</span>
+            <i class="fa-solid fa-pen" style="font-size:0.6rem; color:rgba(255,255,255,0.6); pointer-events:none;" aria-hidden="true"></i>
+            <button type="button" class="btn-delete-col" data-delete-col-index="${i}" title="Hapus kolom '${escapeHTML(c)}'" aria-label="Hapus kolom ${escapeHTML(c)}">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
         </th>
       `).join('')}
     </tr>
@@ -754,6 +760,15 @@ function renderRawDataTableAndFDs() {
   table.querySelector('tbody').innerHTML = globalState.rawData.map((row, rIdx) => 
     `<tr>${row.map((cell, cIdx) => `<td contenteditable="true" data-row="${rIdx}" data-col="${cIdx}">${escapeHTML(cell)}</td>`).join('')}</tr>`
   ).join('');
+
+  // Event listener saat tombol hapus kolom diklik
+  table.querySelectorAll('.btn-delete-col').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const colIndex = parseInt(btn.getAttribute('data-delete-col-index'), 10);
+      deleteColumn(colIndex);
+    });
+  });
 
   // Event listener saat nama kolom diedit langsung di tabel
   table.querySelectorAll('.editable-col-header').forEach(headerEl => {
@@ -789,6 +804,62 @@ function renderRawDataTableAndFDs() {
   });
 
   renderFDList();
+}
+
+function deleteColumn(colIndex) {
+  if (colIndex < 0 || colIndex >= globalState.columns.length) return;
+  if (globalState.columns.length <= 1) {
+    showToast('Tabel harus memiliki minimal 1 kolom.', 'error');
+    return;
+  }
+
+  const deletedCol = globalState.columns[colIndex];
+  if (!confirm(`Hapus kolom "${deletedCol}" dari tabel? Tindakan ini akan menghapus kolom dan data di dalamnya.`)) {
+    return;
+  }
+
+  // 1. Hapus dari globalState.columns
+  globalState.columns.splice(colIndex, 1);
+
+  // 2. Hapus sel pada colIndex dari setiap baris di rawData
+  globalState.rawData.forEach(row => {
+    if (Array.isArray(row) && row.length > colIndex) {
+      row.splice(colIndex, 1);
+    }
+  });
+
+  // 3. Bersihkan dari primaryKeys jika ada
+  globalState.primaryKeys = globalState.primaryKeys.filter(k => k !== deletedCol);
+
+  // 4. Bersihkan dari FDs
+  globalState.fds = globalState.fds
+    .map(fd => ({
+      lhs: fd.lhs.filter(k => k !== deletedCol),
+      rhs: fd.rhs.filter(k => k !== deletedCol)
+    }))
+    .filter(fd => fd.lhs.length > 0 && fd.rhs.length > 0);
+
+  // 5. Bersihkan dari suggestedTables3NF jika ada
+  if (Array.isArray(globalState.suggestedTables3NF)) {
+    globalState.suggestedTables3NF.forEach(t => {
+      if (Array.isArray(t.columns)) t.columns = t.columns.filter(c => c !== deletedCol);
+      if (Array.isArray(t.primaryKeys)) t.primaryKeys = t.primaryKeys.filter(k => k !== deletedCol);
+      if (Array.isArray(t.foreignKeys)) t.foreignKeys = t.foreignKeys.filter(k => k !== deletedCol);
+      if (Array.isArray(t.references)) t.references = t.references.filter(r => r.column !== deletedCol);
+    });
+    globalState.suggestedTables3NF = globalState.suggestedTables3NF.filter(t => t.columns && t.columns.length > 0);
+  }
+
+  // 6. Re-render tampilan tabel mentah dan daftar FD
+  renderRawDataTableAndFDs();
+
+  // 7. Jika 1NF sedang terbuka, update juga tabel 1NF
+  const card1NF = document.getElementById('card-step-5-6');
+  if (card1NF && !card1NF.classList.contains('hidden')) {
+    render1NFTable();
+  }
+
+  showToast(`Kolom "${deletedCol}" berhasil dihapus dari tabel.`, 'success');
 }
 
 function renameColumn(oldName, newName, colIndex) {
