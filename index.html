@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relational Data Normalizer AI</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+</head>
+<body>
+  <div class="container">
+    <header class="main-header">
+      <div class="header-badge"><i class="fa-solid fa-wand-magic-sparkles"></i> Gemini-Powered Engine</div>
+      <h1>Relational Data Normalizer</h1>
+      <p>Otomatisasi penguraian dokumen nota, slip gaji, serta kamus data akademik ke dalam bentuk normalisasi 1NF, 2NF, hingga 3NF siap pakai.</p>
+    </header>
+
+    <!-- Banner Tampilan Layar (Mobile Advisory) -->
+    <div class="device-advisory-banner">
+      <div class="advisory-icon"><i class="fa-solid fa-display"></i></div>
+      <div class="advisory-text">
+        <strong>Pengalaman Terbaik di Desktop / Laptop</strong>
+        <p>Aplikasi ini mengolah banyak struktur kolom tabel relasional. Jika menggunakan smartphone, <strong>sangat disarankan memutar layar ke mode Landscape atau mode desktop</strong> agar peninjauan tabel dan normalisasi lebih leluasa dan nyaman.</p>
+      </div>
+    </div>
+
+    <!-- Stepper 8 Langkah -->
+    <div class="stepper">
+      <div class="step-item active" id="st-1">API Key</div>
+      <div class="step-item" id="st-2">Upload</div>
+      <div class="step-item" id="st-3">Ekstraksi</div>
+      <div class="step-item" id="st-4">Verifikasi & FD</div>
+      <div class="step-item" id="st-5">UNF</div>
+      <div class="step-item" id="st-6">1NF & Primary Key (PK)</div>
+      <div class="step-item" id="st-7">2NF & 3NF</div>
+      <div class="step-item" id="st-8">Ekspor SQL</div>
+    </div>
+
+    <!-- Step 1: API Key Setup & Security Transparency -->
+    <section class="card" id="card-step-1">
+      <h2><i class="fa-solid fa-key"></i>Pengaturan Gemini API Key</h2>
+      <p class="subtitle">Konfigurasi API key mandiri (Bring Your Own Key) untuk menghubungkan sistem dengan model AI Google.</p>
+
+      <!-- Kotak Edukasi Keamanan & Disclaimer Open Source -->
+      <div class="security-disclaimer">
+        <div class="disclaimer-header">
+          <i class="fa-solid fa-shield-halved"></i>
+          <strong>Transparansi Privasi & Keamanan Kunci API</strong>
+        </div>
+        <p class="disclaimer-text">
+          Aplikasi ini dirancang sebagai proyek <em>open-source</em> yang berjalan <strong>100% di sisi klien (Client-Side Architecture)</strong>.
+        </p>
+        <ul class="disclaimer-points">
+          <li>
+            <strong>Mengapa Memerlukan API Key Mandiri?</strong> Website ini di-host secara publik via GitHub Pages tanpa server terpusat/backend. Menyediakan API Key sentral milik pengembang akan mengakibatkan kuota cepat habis (<em>rate limit</em>) dan risiko pembengkakan biaya tagihan yang tidak realistis untuk proyek nirlaba. Model mandiri ini adalah solusi yang adil dan berkelanjutan bagi seluruh pengguna.
+          </li>
+          <li>
+            <strong>Jaminan Privasi & Keamanan:</strong> API Key Anda <strong>tidak pernah dikirimkan ke server kami atau pihak ketiga mana pun</strong>. Kunci hanya disimpan di <code>localStorage</code> peramban Anda dan dikirim langsung dari browser Anda ke endpoint resmi Google Cloud API (<code>generativelanguage.googleapis.com</code>) menggunakan protokol enkripsi HTTPS aman.
+          </li>
+        </ul>
+      </div>
+
+      <div class="api-key-help">
+        <p><strong>Belum memiliki Gemini API Key?</strong> Buat kunci gratis langsung melalui konsol Google AI Studio:</p>
+        <a class="register-link" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">
+          <i class="fa-solid fa-arrow-up-right-from-square"></i> Dapatkan Gemini API Key Gratis di Google AI Studio
+        </a>
+      </div>
+
+      <div class="api-key-controls">
+        <label class="sr-only" for="api-key-input">Gemini API Key</label>
+        <input type="password" id="api-key-input" class="input-field" placeholder="Tempel Gemini API Key di sini" autocomplete="off" />
+        <button id="btn-save-key" class="btn-dark"><i class="fa-solid fa-floppy-disk"></i> Simpan Key</button>
+        <button id="btn-test-key" class="btn-outline"><i class="fa-solid fa-plug"></i> Uji Koneksi</button>
+      </div>
+      <div class="key-feedback" aria-live="polite">
+        <span id="key-status" class="badge hidden"></span>
+        <span id="key-test-detail" class="help-note"></span>
+      </div>
+    </section>
+
+    <!-- Step 2: Upload Dokumen & Demo Instan -->
+    <section class="card" id="card-step-2">
+      <h2><i class="fa-solid fa-cloud-arrow-up"></i>Unggah Dokumen / Gunakan Demo</h2>
+      <p class="subtitle">Unggah foto nota, slip gaji, formulir, atau berkas soal / DFD / Kamus Data berformat PDF.</p>
+      
+      <div class="demo-actions">
+        <button id="btn-demo-nota" class="btn-outline"><i class="fa-solid fa-receipt"></i> Demo: Nota Retail</button>
+        <button id="btn-demo-gaji" class="btn-outline"><i class="fa-solid fa-money-check-dollar"></i> Demo: Slip Gaji</button>
+      </div>
+
+      <div class="upload-area" id="drop-zone">
+        <i class="fa-solid fa-file-invoice" style="font-size: 2.4rem; color: var(--primary-accent); margin-bottom: 12px;"></i>
+        <p>Tarik dan lepas berkas gambar atau PDF di sini, atau <strong>klik untuk memilih file</strong></p>
+        <small class="help-note">Mendukung format: PDF, JPG, PNG, atau WEBP.</small>
+        <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,application/pdf" hidden />
+      </div>
+
+      <div id="preview-container" class="hidden" style="margin-top: 16px;">
+        <div id="file-info-box" style="display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: #f8fafc; border-radius: var(--radius-sub); border: 1px solid var(--border-subtle); margin-bottom: 16px;">
+          <i id="file-icon" class="fa-solid fa-file-pdf" style="font-size: 2rem; color: #ef4444; flex-shrink: 0;"></i>
+          <div style="min-width: 0; overflow-wrap: anywhere;">
+            <p id="file-name" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 2px;">nama_dokumen.pdf</p>
+            <span id="file-size" style="font-size: 0.8rem; color: var(--text-muted);">Ukuran file</span>
+          </div>
+        </div>
+        <img id="image-preview" src="" alt="Pratinjau Gambar" class="hidden" style="max-height: 250px; max-width: 100%; border-radius: 12px; border: 1px solid var(--border-subtle); margin-bottom: 16px;" />
+        <div class="analyze-actions">
+          <button id="btn-analyze" class="btn-dark"><i class="fa-solid fa-wand-magic-sparkles"></i> Analisis &amp; Ekstrak Data dengan AI</button>
+          <button id="btn-cancel-analyze" class="btn-outline hidden"><i class="fa-solid fa-xmark"></i> Batalkan</button>
+        </div>
+        <p id="analyze-estimate" class="estimate-note">
+          <i class="fa-regular fa-clock"></i> Estimasi waktu analisis: <strong id="estimate-text">-</strong>
+        </p>
+
+        <!-- Panel Loading Analisis AI -->
+        <div id="analyze-loading" class="loading-panel hidden" role="status" aria-live="polite">
+          <div class="loader-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div class="loading-body">
+            <p class="loading-title" id="loading-stage">Mengirim dokumen ke Gemini...</p>
+            <div class="progress-track"><div class="progress-bar" id="loading-progress"></div></div>
+            <p class="loading-meta">
+              <span><i class="fa-solid fa-stopwatch"></i> Berjalan: <strong id="loading-elapsed">0 detik</strong></span>
+              <span><i class="fa-regular fa-hourglass-half"></i> Sisa estimasi: <strong id="loading-remaining">-</strong></span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 3 & 4: Verifikasi Data Mentah & Editor Aturan Bisnis -->
+    <section class="card hidden" id="card-step-3-4">
+      <h2><i class="fa-solid fa-table"></i>Verifikasi Data Mentah & Aturan Bisnis</h2>
+      <p class="subtitle">Sunting <strong>nama kolom</strong> atau <strong>nilai data</strong> langsung di tabel. AI juga telah menganalisis aturan bisnis dokumen secara otomatis.</p>
+
+      <div id="simulation-notice" class="hidden" style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 14px 18px; border-radius: 6px; margin-bottom: 20px; font-size: 0.88rem; color: #1e3a8a;">
+        <i class="fa-solid fa-circle-info" style="margin-right: 6px;"></i>
+        <strong>Catatan Simulasi Data AI:</strong> Dokumen yang Anda unggah hanya memuat skema/kamus data tanpa baris data riil. AI secara otomatis membangkitkan <em>data simulasi (dummy tuples)</em> di bawah untuk memvisualisasikan tahapan normalisasi. Anda dapat menyunting nama kolom maupun nilainya.
+      </div>
+
+      <p><strong>Data Tabel Mentah (Nama Kolom & Isi Dapat Diedit Langsung):</strong></p>
+      <div class="table-wrapper">
+        <table id="raw-data-table"><thead></thead><tbody></tbody></table>
+      </div>
+
+      <div style="margin-top: 32px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
+          <p><strong>Aturan Bisnis / Functional Dependencies (FD):</strong></p>
+          <span class="badge" style="background: #e0e7ff; color: #3730a3; font-weight: normal;"><i class="fa-solid fa-check"></i> Dianalisis otomatis oleh AI</span>
+        </div>
+        <p class="subtitle" style="margin-bottom: 12px;">Aturan di bawah ini dihasilkan dari dokumen. Menambahkan narasi atau FD manual di bawah bersifat <strong>Opsional</strong>.</p>
+
+        <div>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">Daftar Ketergantungan Fungsional (FD) Aktif:</p>
+          <div id="fd-list-container"></div>
+          
+          <div class="fd-manual-row" style="display: flex; gap: 10px; margin-top: 14px;">
+            <input type="text" id="fd-lhs" class="input-field" placeholder="Determinant (X), misal: nim" />
+            <span style="align-self: center; font-weight: bold; color: var(--text-muted);">→</span>
+            <input type="text" id="fd-rhs" class="input-field" placeholder="Dependent (Y), misal: nama_mhs, jur" />
+            <button id="btn-add-fd" class="btn-outline">Tambah FD</button>
+          </div>
+        </div>
+
+        <details style="margin-top: 18px; background: #fafafa; border: 1px solid var(--border-subtle); border-radius: var(--radius-sub); padding: 14px 18px;">
+          <summary style="font-size: 0.88rem; font-weight: 600; cursor: pointer; color: var(--text-main);">
+            <i class="fa-solid fa-circle-plus"></i> Tambah Narasi Aturan Tambahan (Opsional)
+          </summary>
+          <div style="margin-top: 12px;">
+            <textarea id="fd-narrative" class="input-field" rows="2" placeholder="Tuliskan jika ada ketentuan bisnis spesifik yang belum terdeteksi..."></textarea>
+            <button id="btn-parse-narrative" class="btn-dark" style="margin-top: 10px; font-size: 0.85rem;">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Terjemahkan Narasi ke FD
+            </button>
+          </div>
+        </details>
+      </div>
+
+      <button id="btn-process-unf" class="btn-dark" style="margin-top: 28px;">Lanjut ke Formulasi UNF</button>
+    </section>
+
+    <!-- Step 5 & 6: Formulasi UNF, 1NF & Selection Primary Key (Perbaikan Spacing) -->
+    <section class="card hidden" id="card-step-5-6">
+      <h2><i class="fa-solid fa-layer-group"></i> Formulasi UNF, 1NF & Penentuan Primary Key</h2>
+      <p class="subtitle">Tahapan transformasi data dari bentuk non-normal (UNF) ke bentuk normal pertama (1NF).</p>
+      
+      <!-- UNF Sub-Section dengan spacing proporsional -->
+      <div id="unf-section" class="flow-sub-section">
+        <h3 class="sub-section-title">Unnormalized Form (UNF)</h3>
+        <div class="explanation-card">
+          Mengelompokkan data menjadi Atribut Header (Nilai Tunggal) dan Kelompok Berulang (Repeating Group) sebelum proses atomikasi.
+        </div>
+        <div id="unf-display"></div>
+      </div>
+
+      <div class="section-divider"></div>
+
+      <!-- 1NF Sub-Section -->
+      <div id="1nf-section" class="flow-sub-section">
+        <h3 class="sub-section-title">First Normal Form (1NF)</h3>
+        <div class="explanation-card">
+          Menghilangkan kelompok berulang sehingga setiap sel bernilai atomik. <strong>Pilih Primary Key</strong> dengan mengklik tombol kolom di bawah.
+        </div>
+        <div id="pk-selector-buttons" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;"></div>
+        <div class="table-wrapper">
+          <table id="table-1nf"><thead></thead><tbody></tbody></table>
+        </div>
+      </div>
+
+      <button id="btn-process-2nf-3nf" class="btn-dark" style="margin-top: 28px;">Jalankan Normalisasi 2NF & 3NF</button>
+    </section>
+
+    <!-- Step 7: Normalisasi 2NF & 3NF -->
+    <section class="card hidden" id="card-step-7">
+      <h2><i class="fa-solid fa-diagram-project"></i>Normalisasi 2NF & 3NF</h2>
+      <p class="subtitle">Dekomposisi tabel relasional lengkap dengan pemisahan ketergantungan parsial (2NF), transitif (3NF), serta penetapan <strong>Primary Key (PK)</strong> dan <strong>Foreign Key (FK)</strong>.</p>
+
+      <!-- Legenda Status Kunci -->
+      <div class="key-legend-box" aria-label="Legenda Status Kunci">
+        <span class="legend-title"><i class="fa-solid fa-tags"></i> Status Kunci:</span>
+        <span class="badge badge-pk"><i class="fa-solid fa-key"></i> PK: Primary Key (Kunci Utama)</span>
+        <span class="badge badge-fk"><i class="fa-solid fa-link"></i> FK: Foreign Key (Kunci Tamu / Asing)</span>
+        <span style="font-size:0.78rem; color:var(--text-muted); margin-left:auto;">Kolom PK tabel master yang dirujuk tabel lain berstatus sebagai <strong>FK</strong></span>
+      </div>
+
+      <div id="2nf-results" class="flow-sub-section">
+        <h3 class="sub-section-title">Second Normal Form (2NF)</h3>
+        <div class="explanation-card">Memisahkan ketergantungan parsial dari Composite Primary Key.</div>
+        <div id="tables-2nf-container"></div>
+      </div>
+
+      <div class="section-divider"></div>
+
+      <div id="3nf-results" class="flow-sub-section">
+        <h3 class="sub-section-title">Third Normal Form (3NF)</h3>
+        <div class="explanation-card">Memisahkan ketergantungan transitif pada atribut non-primary key.</div>
+        <div id="tables-3nf-container"></div>
+      </div>
+
+      <button id="btn-process-export" class="btn-dark" style="margin-top: 28px;">Lihat Ringkasan Seluruh Tabel & Ekspor SQL</button>
+    </section>
+
+    <!-- Step 8: Skema Akhir Dari UNF-3NF & Ekspor SQL -->
+    <section class="card hidden" id="card-step-8">
+      <h2><i class="fa-solid fa-database"></i> 8. Ringkasan Transformasi Skema (UNF s.d 3NF) & Ekspor SQL</h2>
+      <p class="subtitle">Rekapitulasi struktur tabel dari bentuk awal hingga normalisasi lengkap beserta kueri DDL SQL.</p>
+
+      <div id="all-stages-summary" style="display: flex; flex-direction: column; gap: 24px; margin-bottom: 32px;"></div>
+
+      <hr style="border: none; border-top: 1px solid var(--border-subtle); margin: 28px 0;" />
+
+      <h3>Kueri DDL SQL & JSON Schema</h3>
+      <div class="export-actions" style="display: flex; gap: 10px; margin: 16px 0;">
+        <button id="btn-copy-sql" class="btn-dark"><i class="fa-solid fa-copy"></i> Salin SQL</button>
+        <button id="btn-download-sql" class="btn-outline"><i class="fa-solid fa-download"></i> Unduh File .sql</button>
+        <button id="btn-export-json" class="btn-outline"><i class="fa-solid fa-file-code"></i> Ekspor JSON</button>
+      </div>
+
+      <pre id="sql-output"></pre>
+    </section>
+
+    <!-- Footnote & Editable Watermark -->
+    <footer class="app-footer">
+      <div class="footer-content">
+        <p class="footer-brand">
+          <i class="fa-solid fa-database"></i> <strong>© 2026 Fahrizaa · Relational Data Normalizer</strong>
+        </p>
+        <small class="footer-note">Ditenagai oleh Google Gemini Multimodal API</small>
+      </div>
+    </footer>
+  </div>
+
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <script src="script.js"></script>
+</body>
+</html>
